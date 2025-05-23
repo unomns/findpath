@@ -8,8 +8,12 @@ import (
 type Astar struct {
 }
 
+func (a *Astar) Name() string {
+	return "A* Search Algorithm"
+}
+
 func (a *Astar) Find(m model.GameMap, p model.Player) model.Path {
-	fmt.Println("A* algorithm used")
+	// TODO: first
 	fmt.Printf("Player #%d finding path..\n", p.ID)
 	return model.Path{}
 }

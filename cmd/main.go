@@ -14,12 +14,12 @@ import (
 
 func main() {
 	file := flag.String("file", "", "Path to the map JSON")
-	algorithm := flag.String("algo", "astar", "Path finding algorithm (a*, etc)")
+	algorithm := flag.String("algo", "a", "Path finding algorithm (a*, etc)")
 
 	flag.Parse()
 
 	if *file == "" {
-		fmt.Println("Usage: myapp -file=map.json -algo=astar")
+		fmt.Println("Usage: myapp -file=map.json -algo=a")
 		return
 	}
 
@@ -43,12 +43,14 @@ func main() {
 		return
 	}
 
+	fmt.Printf("Algo choosen: '%s'\n", algo.Name())
 	pathFindingService := app.NewPathFindingService(algo)
 
 	var wg sync.WaitGroup
 
 	for i, p := range gameMap.Players {
-		p.ID = i
+		p.ID = i + 1
+
 		wg.Add(1)
 		go func(p model.Player) {
 			defer wg.Done()

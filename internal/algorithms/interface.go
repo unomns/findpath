@@ -7,5 +7,6 @@ type Position struct {
 }
 
 type PathFinder interface {
+	Name() string
 	Find(m model.GameMap, p model.Player) model.Path
 }

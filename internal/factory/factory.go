@@ -7,8 +7,12 @@ import (
 
 func NewPathFinder(algo string) (algorithms.PathFinder, error) {
 	switch algo {
-	case "astar":
+	case "a", "a-star":
 		return &algorithms.Astar{}, nil
+	case "b", "bfs":
+		return &algorithms.Bfs{}, nil
+	case "d", "dijkstra":
+		return &algorithms.Dijkstra{}, nil
 	default:
 		return nil, fmt.Errorf("unknown algorithm: %s", algo)
 	}
