@@ -21,3 +21,33 @@ Install it in any Go project:
 ```bash
 go get github.com/unomns/findpath
 ```
+
+### Example usage:
+
+```go
+package main
+
+import (
+    "github.com/unomns/findpath/internal/app"
+    "github.com/unomns/findpath/internal/model"
+    "github.com/unomns/findpath/internal/algorithms/astar"
+)
+
+func main() {
+    // TODO: show
+}
+```
+
+## 🌐 Using as a Microservice
+
+### Run Locally
+```bash
+go run cmd/server/main.go --map=map.json --algo=astar
+
+```
+
+### Run with Docker
+```bash
+docker build -t unomns/findpath .
+docker run -p 8080:8080 unomns/findpath
+```
