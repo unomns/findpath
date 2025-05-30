@@ -13,6 +13,11 @@ import (
 )
 
 func main() {
+	// practice. do not commit
+
+	return
+	// .end practice
+
 	file := flag.String("file", "", "Path to the map JSON")
 	algorithm := flag.String("algo", "a", "Path finding algorithm (a*, etc)")
 
