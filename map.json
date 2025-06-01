@@ -9,7 +9,7 @@
     [0, 0, 0, 0, 0]
   ],
   "players": [
-    {"startX": 0, "startY": 0, "endX": 2, "endY": 5},
-    {"startX": 5, "startY": 5, "endX": 1, "endY": 0}
+    {"startY": 0, "startX": 0, "endY": 4, "endX": 2},
+    {"startY": 4, "startX": 4, "endY": 0, "endX": 1}
   ]
 }

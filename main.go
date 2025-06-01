@@ -13,18 +13,13 @@ import (
 )
 
 func main() {
-	// practice. do not commit
-
-	return
-	// .end practice
-
-	file := flag.String("file", "", "Path to the map JSON")
+	file := flag.String("file", "map.json", "Path to the map JSON")
 	algorithm := flag.String("algo", "a", "Path finding algorithm (a*, etc)")
 
 	flag.Parse()
 
 	if *file == "" {
-		fmt.Println("Usage: myapp -file=map.json -algo=a")
+		fmt.Println("Usage: myapp --file=map.json --algo=a")
 		return
 	}
 
@@ -37,8 +32,14 @@ func main() {
 
 	err = json.Unmarshal(data, &gameMap)
 	if err != nil {
-		fmt.Printf("Map has invalid format: %v\n", err)
+		fmt.Printf("Game Map has invalid format: %v\n", err)
 		return
+	}
+
+	for y, arr := range gameMap.Grid {
+		for x := range arr {
+			gameMap.Map = append(gameMap.Map, model.Node{Y: y, X: x})
+		}
 	}
 
 	var algo algorithms.PathFinder
@@ -62,6 +63,7 @@ func main() {
 
 			pathFindingService.FindPath(gameMap, p)
 		}(p)
+		break
 	}
 
 	wg.Wait()
