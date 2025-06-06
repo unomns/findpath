@@ -67,5 +67,5 @@ func main() {
 	}
 
 	wg.Wait()
-	fmt.Println("All paths calculated")
+	fmt.Println("The end")
 }
