@@ -8,7 +8,7 @@ import (
 func NewPathFinder(algo string, debugMode bool) (algorithms.PathFinder, error) {
 	switch algo {
 	case "a", "a-star":
-		return &algorithms.Astar{DebugMode: debugMode}, nil
+		return algorithms.NewAstar(debugMode), nil
 	case "b", "bfs":
 		return &algorithms.Bfs{}, nil
 	case "d", "dijkstra":

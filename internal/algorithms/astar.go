@@ -3,6 +3,8 @@ package algorithms
 import (
 	"context"
 	"fmt"
+	"slices"
+	"sort"
 	"sync"
 	"unomns/findpath/internal/model"
 )
@@ -18,7 +20,12 @@ type AStarNode struct {
 }
 
 type Astar struct {
-	DebugMode bool
+	debugMode bool
+	l         map[string][]string
+}
+
+func NewAstar(d bool) *Astar {
+	return &Astar{debugMode: d, l: make(map[string][]string)}
 }
 
 func (a *Astar) Name() string {
@@ -28,24 +35,57 @@ func (a *Astar) Name() string {
 var mutex sync.RWMutex
 
 func (a *Astar) debug(n *AStarNode, msg string) {
-	if !a.DebugMode {
+	if !a.debugMode {
 		return
 	}
 
 	if n != nil {
-		msg = fmt.Sprintf("node y:%d x:%d | %s\n", n.Y, n.X, msg)
+		msg = fmt.Sprintf("node [y:%d,x:%d] | %s", n.Y, n.X, msg)
 	}
 
-	fmt.Println(msg)
+	// fmt.Println(msg)
+
+	var k string
+	if n != nil {
+		k = generateKey(n.Y, n.X)
+	} else {
+		k = "default"
+	}
+
+	mutex.RLock()
+	_, ok := a.l[k]
+	mutex.RUnlock()
+
+	mutex.Lock()
+	if !ok {
+		a.l[k] = make([]string, 5)
+	}
+
+	a.l[k] = append(a.l[k], msg)
+	mutex.Unlock()
+}
+
+func (a *Astar) PrintDebugLogs() {
+	keys := make([]string, len(a.l))
+
+	i := 0
+	for k := range a.l {
+		keys[i] = k
+		i++
+	}
+
+	sort.SliceStable(keys, func(i, j int) bool { return keys[i] > keys[j] })
+
+	for _, k := range keys {
+		for _, v := range slices.Backward(a.l[k]) {
+			fmt.Println(v)
+		}
+	}
 }
 
 func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
-	a.debug(nil, fmt.Sprintf("Player #%d finding path.. map lenght: %d, map width: %d\n", p.ID, m.Height, m.Width))
-
 	curY := p.StartY
 	curX := p.StartX
-
-	a.debug(nil, fmt.Sprintf("Start coords: %d %d\n", curY, curX))
 
 	if m.Grid[curY][curX] > 0 {
 		a.debug(nil, "Wrong position! Only the '0' value is available to moving threw!")
@@ -54,27 +94,31 @@ func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
 	}
 
 	target := &AStarNode{Y: p.EndY, X: p.EndX}
-
-	a.debug(nil, fmt.Sprintf("Target coords: %d %d\n\n", p.EndY, p.EndX))
-
 	current := &AStarNode{Y: curY, X: curX}
 	current.HCost = current.calculateHeuristic(target)
 	current.FCost = current.HCost + current.GCost
+
+	a.debug(nil, fmt.Sprintf("Player #%d finding path.. map lenght: %d, map width: %d\n", p.ID, m.Height, m.Width))
+	a.debug(nil, fmt.Sprintf("Start coords: %d %d", curY, curX))
+	a.debug(nil, fmt.Sprintf("Target coords: %d %d\n", p.EndY, p.EndX))
 
 	var path []*model.Node
 	skipped := make(map[string]*AStarNode)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var wg sync.WaitGroup
+	ch := make(chan any)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer close(ch)
 		path = a.loop(ctx, cancel, m, current, target, path, skipped)
 	}()
 
-	wg.Wait()
+	<-ch
+
+	if a.debugMode {
+		a.PrintDebugLogs()
+	}
 
 	return path
 }
@@ -101,13 +145,14 @@ func (a *Astar) multibranchHandler(
 		go func() {
 			defer wg.Done()
 
-			a.debug(current, fmt.Sprintf("Recursion proccessing START...\n=====\n", n.Y, n.X))
+			a.debug(n, "====================\nRecursion proccessing START...\n====================================")
 
 			p := a.loop(ctx, cancel, m, n, target, path, skipped)
 
-			a.debug(current, fmt.Sprintf("Recursion proccessing RESULT...\n=====\n", n.Y, n.X))
+			a.debug(n, "====================\nRecursion proccessing RESULT...\n====================================")
 
 			if p != nil {
+				a.debug(current, fmt.Sprintf("====================\nNew Current coords | y:%d x:%d\n====================================", current.Y, current.X))
 				current = n
 				ch <- p
 			}
@@ -136,11 +181,11 @@ func (a *Astar) loop(
 	for {
 		select {
 		case <-ctx.Done():
-			a.debug(current, "ctx.Done received!\n\n")
+			a.debug(current, "ctx.Done received!")
 			return nil
 
 		default:
-			a.debug(current, fmt.Sprintf("loop %d\n", loopLimiter))
+			a.debug(current, fmt.Sprintf("Start loop %d", loopLimiter))
 
 			path = append(path, &model.Node{Y: current.Y, X: current.X})
 
@@ -156,9 +201,10 @@ func (a *Astar) loop(
 			}
 
 			if len(approved) == 1 {
+				a.debug(current, fmt.Sprintf("New Current coords | y:%d x:%d | len(approved) == 1", approved[0].Y, approved[0].X))
 				current = approved[0]
 			} else {
-				a.debug(current, "========== Falling in recursion!\n\n")
+				a.debug(current, "========== Falling in recursion!\n")
 				ch := a.multibranchHandler(ctx, approved, m, current, target, path, skipped)
 
 				select {
@@ -170,25 +216,28 @@ func (a *Astar) loop(
 						return nil
 					}
 
-					a.debug(current, "TARGET DEFINED FROM RECURSION\n")
+					a.debug(current, "### TARGET DEFINED FROM RECURSION ###")
 					return p
 				}
 			}
 
 			loopLimiter++
 			if loopLimiter > 15 {
-				a.debug(current, "\nBREAKed by loop limiter!\n\n")
+				a.debug(current, "\n#### Canceled by loop limiter!\n")
 				cancel()
 
 				break
 			}
 
-			a.debug(current, fmt.Sprintf("Current coords | y:%d x:%d\n\n", current.Y, current.X))
 			if current.Y != target.Y || current.X != target.X {
+				a.debug(current, fmt.Sprintf("End of loop %d | continue", loopLimiter))
+
 				continue
 			}
 
-			a.debug(current, "\nTarget detected successfully!\n\n")
+			a.debug(current, "\n###### Target detected successfully!!!\n")
+			a.debug(current, fmt.Sprintf("End of loop %d | finish loop", loopLimiter))
+
 			cancel()
 		}
 
@@ -212,6 +261,7 @@ func (a *Astar) definePossibleOptions(
 		// TODO: define -> filter -> calculate
 		neighbours := a.defineNeighbourNodes(current, m, skipped)
 		if len(neighbours) == 0 {
+			a.debug(current, "No neigbours found!")
 			ch <- false
 			return
 		}
@@ -219,7 +269,7 @@ func (a *Astar) definePossibleOptions(
 		approved = a.calculate(current, &neighbours)
 
 		if len(approved) == 0 {
-			a.debug(current, fmt.Sprintf("No approved for node: y:%d x:%d!\n", current.Y, current.X))
+			a.debug(current, "Neibours not approved!")
 			ch <- false
 			return
 		}
@@ -252,7 +302,7 @@ func (a *Astar) calculate(
 		n.GCost = current.GCost + 1
 		n.Parent = current
 
-		a.debug(current, fmt.Sprintf("node allowed - Y:%d X:%d\n", n.Y, n.X))
+		a.debug(current, fmt.Sprintf("node allowed - Y:%d X:%d", n.Y, n.X))
 		approved = append(approved, &n)
 		// wg.Add(1)
 
@@ -280,7 +330,7 @@ func (a *Astar) defineNeighbourNodes(current *AStarNode, m *model.GameMap, skipp
 	// left neighbor
 	if curX > 0 {
 		if n := defineNeighbour(curY, curX-1, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("left node: %d %d\n", curY, curX-1))
+			a.debug(current, fmt.Sprintf("left node: %d %d", curY, curX-1))
 			res = append(res, *n)
 		}
 	}
@@ -288,7 +338,7 @@ func (a *Astar) defineNeighbourNodes(current *AStarNode, m *model.GameMap, skipp
 	// right neighbor
 	if curX < (m.Width - 1) {
 		if n := defineNeighbour(curY, curX+1, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("right node: %d %d\n", curY, curX+1))
+			a.debug(current, fmt.Sprintf("right node: %d %d", curY, curX+1))
 			res = append(res, *n)
 		}
 	}
@@ -296,7 +346,7 @@ func (a *Astar) defineNeighbourNodes(current *AStarNode, m *model.GameMap, skipp
 	// top neighbor
 	if curY > 0 {
 		if n := defineNeighbour(curY-1, curX, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("top node: %d %d\n", curY-1, curX))
+			a.debug(current, fmt.Sprintf("top node: %d %d", curY-1, curX))
 			res = append(res, *n)
 		}
 	}
@@ -304,7 +354,7 @@ func (a *Astar) defineNeighbourNodes(current *AStarNode, m *model.GameMap, skipp
 	// bottom neighbor
 	if curY < (m.Height - 1) {
 		if n := defineNeighbour(curY+1, curX, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("bottom node: %d %d\n", curY+1, curX))
+			a.debug(current, fmt.Sprintf("bottom node: %d %d", curY+1, curX))
 			res = append(res, *n)
 		}
 	}
