@@ -10,7 +10,7 @@ func (d *Dijkstra) Name() string {
 	return "Dijkstra's Algorithm"
 }
 
-func (d *Dijkstra) Find(m model.GameMap, p model.Player) []*model.Node {
+func (d *Dijkstra) Find(m model.GameMap, p *model.Player) []*model.Node {
 	// TODO: third
 	return make([]*model.Node, 0)
 }

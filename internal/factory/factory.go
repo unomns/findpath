@@ -5,10 +5,10 @@ import (
 	"unomns/findpath/internal/algorithms"
 )
 
-func NewPathFinder(algo string) (algorithms.PathFinder, error) {
+func NewPathFinder(algo string, debugMode bool) (algorithms.PathFinder, error) {
 	switch algo {
 	case "a", "a-star":
-		return &algorithms.Astar{}, nil
+		return &algorithms.Astar{DebugMode: debugMode}, nil
 	case "b", "bfs":
 		return &algorithms.Bfs{}, nil
 	case "d", "dijkstra":

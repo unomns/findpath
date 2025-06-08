@@ -15,6 +15,7 @@ import (
 func main() {
 	file := flag.String("file", "map.json", "Path to the map JSON")
 	algorithm := flag.String("algo", "a", "Path finding algorithm (a*, etc)")
+	debugMode := *flag.Bool("debug", false, "Use debug mode for extended logs")
 
 	flag.Parse()
 
@@ -44,12 +45,14 @@ func main() {
 
 	var algo algorithms.PathFinder
 
-	if algo, err = factory.NewPathFinder(*algorithm); err != nil {
+	if algo, err = factory.NewPathFinder(*algorithm, debugMode); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Algo choosen: '%s'\n", algo.Name())
+	if debugMode {
+		fmt.Printf("Algo choosen: '%s'\n", algo.Name())
+	}
 	pathFindingService := app.NewPathFindingService(algo)
 
 	var wg sync.WaitGroup
@@ -58,12 +61,23 @@ func main() {
 		p.ID = i + 1
 
 		wg.Add(1)
-		go func(p model.Player) {
+		go func() {
 			defer wg.Done()
 
-			pathFindingService.FindPath(gameMap, p)
-		}(p)
-		break
+			path := pathFindingService.FindPath(gameMap, &p)
+
+			if path == nil {
+				fmt.Println("Target not detected!")
+
+				return
+			}
+
+			fmt.Printf("Player #%d Path found:\n", p.ID)
+			for k, n := range path {
+				fmt.Printf("[%d][y:%d, x:%d]\n", k, n.Y, n.X)
+			}
+			fmt.Println()
+		}()
 	}
 
 	wg.Wait()
