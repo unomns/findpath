@@ -9,12 +9,22 @@ import (
 	"unomns/findpath/internal/model"
 )
 
+type AStarNode struct {
+	coords model.Node
+	gCost  int // Cost from the start node to this node
+	hCost  int // Heuristic cost from this node to the end node
+	fCost  int // Total cost (GCost + HCost)
+
+	parent *AStarNode
+	index  int
+}
+
 type PriorityQueue []*AStarNode
 
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].FCost < pq[j].FCost
+	return pq[i].fCost < pq[j].fCost
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -40,24 +50,6 @@ func (pq *PriorityQueue) Pop() any {
 	return item
 }
 
-// update modifies the priority and value of an Item in the queue.
-func (pq *PriorityQueue) update(item *AStarNode, parent *AStarNode, fcost int) {
-	item.Parent = parent
-	item.FCost = fcost
-	heap.Fix(pq, item.index)
-}
-
-type AStarNode struct {
-	Y     int
-	X     int
-	GCost int // Cost from the start node to this node
-	HCost int // Heuristic cost from this node to the end node
-	FCost int // Total cost (GCost + HCost)
-
-	Parent *AStarNode
-	index  int
-}
-
 type Astar struct {
 	debugMode bool
 	logs      map[string][]string
@@ -71,9 +63,7 @@ func (a *Astar) Name() string {
 	return "A* Search Algorithm"
 }
 
-var (
-	mutex sync.RWMutex
-)
+var mutex sync.RWMutex
 
 func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
 	if m.Grid[p.StartY][p.StartX] > 0 {
@@ -93,11 +83,11 @@ func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)
 
-	target := &AStarNode{Y: p.EndY, X: p.EndX}
+	target := &AStarNode{coords: model.Node{Y: p.EndY, X: p.EndX}}
 
-	current := &AStarNode{Y: curY, X: curX}
-	current.HCost = current.calculateHeuristic(target)
-	current.FCost = current.HCost + current.GCost
+	current := &AStarNode{coords: model.Node{Y: curY, X: curX}}
+	current.hCost = current.calculateHeuristic(target)
+	current.fCost = current.hCost + current.gCost
 
 	heap.Push(&pq, current)
 
@@ -112,9 +102,11 @@ func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
 	}
 
 	var path []*model.Node
-	for n := finalNode; n != nil; n = n.Parent {
-		path = append(path, &model.Node{Y: n.Y, X: n.X})
+	for n := finalNode; n != nil; n = n.parent {
+		path = append(path, &n.coords)
 	}
+
+	slices.Reverse(path)
 
 	return path
 }
@@ -130,12 +122,10 @@ func (a *Astar) loop(
 	for pq.Len() > 0 {
 		loopCounter++
 		current := heap.Pop(pq).(*AStarNode)
-		a.debug(current, fmt.Sprintf("[loop:%d] New Current coords | y:%d x:%d | ", loopCounter, current.Y, current.X))
+		a.debug(current, fmt.Sprintf("[loop:%d] New Current coords | %v", loopCounter, current.coords))
 
-		k := generateKey(current.Y, current.X)
-		mutex.Lock()
+		k := generateKey(current.coords.Y, current.coords.X)
 		skipped[k] = current
-		mutex.Unlock()
 
 		neighbours := current.neigbours(&m, skipped)
 		if len(neighbours) == 0 {
@@ -148,7 +138,7 @@ func (a *Astar) loop(
 			n.calculate(current)
 			heap.Push(pq, n)
 
-			if n.Y == target.Y && n.X == target.X {
+			if n.coords.Y == target.coords.Y && n.coords.X == target.coords.X {
 				a.debug(n, "\n###### Target detected successfully!!!\n")
 				return n
 			}
@@ -163,8 +153,8 @@ func (a *Astar) loop(
 func (n *AStarNode) neigbours(m *model.GameMap, skipped map[string]*AStarNode) []*AStarNode {
 	var res []*AStarNode
 
-	curY := n.Y
-	curX := n.X
+	curY := n.coords.Y
+	curX := n.coords.X
 
 	// left neighbor
 	if curX > 0 {
@@ -198,15 +188,12 @@ func (n *AStarNode) neigbours(m *model.GameMap, skipped map[string]*AStarNode) [
 }
 
 func defineNode(y int, x int, grid *[][]int, skipped map[string]*AStarNode) *AStarNode {
-	mutex.RLock()
 	_, ok := skipped[generateKey(y, x)]
-	mutex.RUnlock()
-
 	if ok || (*grid)[y][x] > 0 {
 		return nil
 	}
 
-	return &AStarNode{Y: y, X: x}
+	return &AStarNode{coords: model.Node{Y: y, X: x}}
 }
 
 func generateKey(y int, x int) string {
@@ -214,13 +201,13 @@ func generateKey(y int, x int) string {
 }
 
 func (n *AStarNode) calculate(parent *AStarNode) {
-	n.HCost = parent.calculateHeuristic(n)
-	n.GCost = parent.GCost + 1
-	n.Parent = parent
+	n.hCost = parent.calculateHeuristic(n)
+	n.gCost = parent.gCost + 1
+	n.parent = parent
 }
 
 func (n *AStarNode) calculateHeuristic(to *AStarNode) int {
-	return abs(n.Y-to.Y) + abs(n.X-to.X) // Manhattan distance or Euclidean distance
+	return abs(n.coords.Y-to.coords.Y) + abs(n.coords.X-to.coords.X) // Manhattan distance or Euclidean distance
 }
 
 func abs(i int) int {
@@ -238,12 +225,12 @@ func (a *Astar) debug(n *AStarNode, msg string) {
 	}
 
 	if n != nil {
-		msg = fmt.Sprintf("node [y:%d,x:%d] | %s", n.Y, n.X, msg)
+		msg = fmt.Sprintf("node %v | %s", n.coords, msg)
 	}
 
 	var k string
 	if n != nil {
-		k = generateKey(n.Y, n.X)
+		k = generateKey(n.coords.Y, n.coords.X)
 	} else {
 		k = "default"
 	}

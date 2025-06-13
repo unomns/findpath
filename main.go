@@ -15,7 +15,7 @@ import (
 func main() {
 	file := flag.String("file", "map.json", "Path to the map JSON")
 	algorithm := flag.String("algo", "a", "Path finding algorithm (a*, etc)")
-	debugMode := *flag.Bool("debug", false, "Use debug mode for extended logs")
+	debugMode := flag.Bool("debug", false, "Use debug mode for extended logs")
 
 	flag.Parse()
 
@@ -45,12 +45,12 @@ func main() {
 
 	var algo algorithms.PathFinder
 
-	if algo, err = factory.NewPathFinder(*algorithm, debugMode); err != nil {
+	if algo, err = factory.NewPathFinder(*algorithm, *debugMode); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
 
-	if debugMode {
+	if *debugMode {
 		fmt.Printf("Algo choosen: '%s'\n", algo.Name())
 	}
 	pathFindingService := app.NewPathFindingService(algo)
@@ -74,7 +74,7 @@ func main() {
 
 			fmt.Printf("Player #%d Path found [start:%d,%d][end:%d,%d]:\n", p.ID, p.StartY, p.StartY, p.EndY, p.EndX)
 			for k, n := range path {
-				fmt.Printf("[%d][y:%d, x:%d]\n", k, n.Y, n.X)
+				fmt.Printf("[%d] %v\n", k, *n)
 			}
 			fmt.Println()
 		}()
