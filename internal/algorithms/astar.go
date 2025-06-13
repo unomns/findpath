@@ -1,13 +1,51 @@
 package algorithms
 
 import (
-	"context"
+	"container/heap"
 	"fmt"
 	"slices"
 	"sort"
 	"sync"
 	"unomns/findpath/internal/model"
 )
+
+type PriorityQueue []*AStarNode
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].FCost < pq[j].FCost
+}
+
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *PriorityQueue) Push(x any) {
+	n := len(*pq)
+	item := x.(*AStarNode)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq *PriorityQueue) Pop() any {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil  // don't stop the GC from reclaiming the item eventually
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
+
+// update modifies the priority and value of an Item in the queue.
+func (pq *PriorityQueue) update(item *AStarNode, parent *AStarNode, fcost int) {
+	item.Parent = parent
+	item.FCost = fcost
+	heap.Fix(pq, item.index)
+}
 
 type AStarNode struct {
 	Y     int
@@ -17,352 +55,149 @@ type AStarNode struct {
 	FCost int // Total cost (GCost + HCost)
 
 	Parent *AStarNode
+	index  int
 }
 
 type Astar struct {
 	debugMode bool
-	l         map[string][]string
+	logs      map[string][]string
 }
 
 func NewAstar(d bool) *Astar {
-	return &Astar{debugMode: d, l: make(map[string][]string)}
+	return &Astar{debugMode: d, logs: make(map[string][]string)}
 }
 
 func (a *Astar) Name() string {
 	return "A* Search Algorithm"
 }
 
-var mutex sync.RWMutex
-
-func (a *Astar) debug(n *AStarNode, msg string) {
-	if !a.debugMode {
-		return
-	}
-
-	if n != nil {
-		msg = fmt.Sprintf("node [y:%d,x:%d] | %s", n.Y, n.X, msg)
-	}
-
-	// fmt.Println(msg)
-
-	var k string
-	if n != nil {
-		k = generateKey(n.Y, n.X)
-	} else {
-		k = "default"
-	}
-
-	mutex.RLock()
-	_, ok := a.l[k]
-	mutex.RUnlock()
-
-	mutex.Lock()
-	if !ok {
-		a.l[k] = make([]string, 5)
-	}
-
-	a.l[k] = append(a.l[k], msg)
-	mutex.Unlock()
-}
-
-func (a *Astar) PrintDebugLogs() {
-	keys := make([]string, len(a.l))
-
-	i := 0
-	for k := range a.l {
-		keys[i] = k
-		i++
-	}
-
-	sort.SliceStable(keys, func(i, j int) bool { return keys[i] > keys[j] })
-
-	for _, k := range keys {
-		for _, v := range slices.Backward(a.l[k]) {
-			fmt.Println(v)
-		}
-	}
-}
+var (
+	mutex sync.RWMutex
+)
 
 func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
-	curY := p.StartY
-	curX := p.StartX
-
-	if m.Grid[curY][curX] > 0 {
+	if m.Grid[p.StartY][p.StartX] > 0 {
 		a.debug(nil, "Wrong position! Only the '0' value is available to moving threw!")
 
 		return nil
 	}
 
-	target := &AStarNode{Y: p.EndY, X: p.EndX}
-	current := &AStarNode{Y: curY, X: curX}
-	current.HCost = current.calculateHeuristic(target)
-	current.FCost = current.HCost + current.GCost
+	curY := p.StartY
+	curX := p.StartX
 
 	a.debug(nil, fmt.Sprintf("Player #%d finding path.. map lenght: %d, map width: %d\n", p.ID, m.Height, m.Width))
 	a.debug(nil, fmt.Sprintf("Start coords: %d %d", curY, curX))
 	a.debug(nil, fmt.Sprintf("Target coords: %d %d\n", p.EndY, p.EndX))
 
-	var path []*model.Node
 	skipped := make(map[string]*AStarNode)
+	pq := make(PriorityQueue, 0)
+	heap.Init(&pq)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	target := &AStarNode{Y: p.EndY, X: p.EndX}
 
-	ch := make(chan any)
+	current := &AStarNode{Y: curY, X: curX}
+	current.HCost = current.calculateHeuristic(target)
+	current.FCost = current.HCost + current.GCost
 
-	go func() {
-		defer close(ch)
-		path = a.loop(ctx, cancel, m, current, target, path, skipped)
-	}()
+	heap.Push(&pq, current)
 
-	<-ch
+	finalNode := a.loop(m, target, &pq, skipped)
 
 	if a.debugMode {
-		a.PrintDebugLogs()
+		a.printDebugLogs()
+	}
+
+	if finalNode == nil {
+		return nil
+	}
+
+	var path []*model.Node
+	for n := finalNode; n != nil; n = n.Parent {
+		path = append(path, &model.Node{Y: n.Y, X: n.X})
 	}
 
 	return path
 }
 
-func (a *Astar) multibranchHandler(
-	parent context.Context,
-	approved []*AStarNode,
-	m model.GameMap,
-	current *AStarNode,
-	target *AStarNode,
-	path []*model.Node,
-	skipped map[string]*AStarNode,
-) chan []*model.Node {
-	ch := make(chan []*model.Node)
-
-	ctx, cancel := context.WithCancel(parent)
-	// defer cancel()
-
-	wg := &sync.WaitGroup{}
-
-	for _, n := range approved {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			a.debug(n, "====================\nRecursion proccessing START...\n====================================")
-
-			p := a.loop(ctx, cancel, m, n, target, path, skipped)
-
-			a.debug(n, "====================\nRecursion proccessing RESULT...\n====================================")
-
-			if p != nil {
-				a.debug(current, fmt.Sprintf("====================\nNew Current coords | y:%d x:%d\n====================================", current.Y, current.X))
-				current = n
-				ch <- p
-			}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
-
-	return ch
-}
-
 func (a *Astar) loop(
-	ctx context.Context,
-	cancel context.CancelFunc,
 	m model.GameMap,
-	current *AStarNode,
 	target *AStarNode,
-	path []*model.Node,
+	pq *PriorityQueue,
 	skipped map[string]*AStarNode,
-) []*model.Node {
-	loopLimiter := 0
+) *AStarNode {
+	loopCounter := 0
 
-	for {
-		select {
-		case <-ctx.Done():
-			a.debug(current, "ctx.Done received!")
-			return nil
+	for pq.Len() > 0 {
+		loopCounter++
+		current := heap.Pop(pq).(*AStarNode)
+		a.debug(current, fmt.Sprintf("[loop:%d] New Current coords | y:%d x:%d | ", loopCounter, current.Y, current.X))
 
-		default:
-			a.debug(current, fmt.Sprintf("Start loop %d", loopLimiter))
+		k := generateKey(current.Y, current.X)
+		mutex.Lock()
+		skipped[k] = current
+		mutex.Unlock()
 
-			path = append(path, &model.Node{Y: current.Y, X: current.X})
-
-			k := generateKey(current.Y, current.X)
-
-			mutex.Lock()
-			skipped[k] = current
-			mutex.Unlock()
-
-			approved := a.definePossibleOptions(ctx, current, &m, skipped)
-			if approved == nil {
-				return nil
-			}
-
-			if len(approved) == 1 {
-				a.debug(current, fmt.Sprintf("New Current coords | y:%d x:%d | len(approved) == 1", approved[0].Y, approved[0].X))
-				current = approved[0]
-			} else {
-				a.debug(current, "========== Falling in recursion!\n")
-				ch := a.multibranchHandler(ctx, approved, m, current, target, path, skipped)
-
-				select {
-				case <-ctx.Done():
-					return nil
-
-				case p, ok := <-ch:
-					if !ok {
-						return nil
-					}
-
-					a.debug(current, "### TARGET DEFINED FROM RECURSION ###")
-					return p
-				}
-			}
-
-			loopLimiter++
-			if loopLimiter > 15 {
-				a.debug(current, "\n#### Canceled by loop limiter!\n")
-				cancel()
-
-				break
-			}
-
-			if current.Y != target.Y || current.X != target.X {
-				a.debug(current, fmt.Sprintf("End of loop %d | continue", loopLimiter))
-
-				continue
-			}
-
-			a.debug(current, "\n###### Target detected successfully!!!\n")
-			a.debug(current, fmt.Sprintf("End of loop %d | finish loop", loopLimiter))
-
-			cancel()
-		}
-
-		return path
-	}
-}
-
-func (a *Astar) definePossibleOptions(
-	ctx context.Context,
-	current *AStarNode,
-	m *model.GameMap,
-	skipped map[string]*AStarNode,
-) []*AStarNode {
-	var approved []*AStarNode
-
-	ch := make(chan bool)
-
-	go func() {
-		defer close(ch)
-
-		// TODO: define -> filter -> calculate
-		neighbours := a.defineNeighbourNodes(current, m, skipped)
+		neighbours := current.neigbours(&m, skipped)
 		if len(neighbours) == 0 {
 			a.debug(current, "No neigbours found!")
-			ch <- false
-			return
+
+			continue
 		}
 
-		approved = a.calculate(current, &neighbours)
+		for _, n := range neighbours {
+			n.calculate(current)
+			heap.Push(pq, n)
 
-		if len(approved) == 0 {
-			a.debug(current, "Neibours not approved!")
-			ch <- false
-			return
+			if n.Y == target.Y && n.X == target.X {
+				a.debug(n, "\n###### Target detected successfully!!!\n")
+				return n
+			}
 		}
 
-		ch <- true
-	}()
-
-	select {
-	case v := <-ch:
-		if !v {
-			return nil
-		}
-
-		return approved
-	case <-ctx.Done():
-		return nil
-	}
-}
-
-func (a *Astar) calculate(
-	current *AStarNode,
-	neighbours *[]AStarNode,
-) []*AStarNode {
-	var approved []*AStarNode
-
-	// wg := &sync.WaitGroup{}
-
-	for _, n := range *neighbours {
-		n.HCost = current.calculateHeuristic(&n)
-		n.GCost = current.GCost + 1
-		n.Parent = current
-
-		a.debug(current, fmt.Sprintf("node allowed - Y:%d X:%d", n.Y, n.X))
-		approved = append(approved, &n)
-		// wg.Add(1)
-
-		// go func() {
-		// 	n.HCost = current.calculateHeuristic(&n)
-		// 	n.GCost = current.GCost + 1
-		// 	n.Parent = current
-
-		// 	fmt.Printf("node allowed - Y:%d X:%d\n", n.Y, n.X)
-		// 	approved = append(approved, &n)
-		// }()
+		a.debug(current, fmt.Sprintf("[loop:%d] End of loop | continue", loopCounter))
 	}
 
-	// wg.Wait()
-
-	return approved
+	return nil
 }
 
-func (a *Astar) defineNeighbourNodes(current *AStarNode, m *model.GameMap, skipped map[string]*AStarNode) []AStarNode {
-	var res []AStarNode
+func (n *AStarNode) neigbours(m *model.GameMap, skipped map[string]*AStarNode) []*AStarNode {
+	var res []*AStarNode
 
-	curY := current.Y
-	curX := current.X
+	curY := n.Y
+	curX := n.X
 
 	// left neighbor
 	if curX > 0 {
-		if n := defineNeighbour(curY, curX-1, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("left node: %d %d", curY, curX-1))
-			res = append(res, *n)
+		if neigbour := defineNode(curY, curX-1, &m.Grid, skipped); neigbour != nil {
+			res = append(res, neigbour)
 		}
 	}
 
 	// right neighbor
 	if curX < (m.Width - 1) {
-		if n := defineNeighbour(curY, curX+1, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("right node: %d %d", curY, curX+1))
-			res = append(res, *n)
+		if neigbour := defineNode(curY, curX+1, &m.Grid, skipped); neigbour != nil {
+			res = append(res, neigbour)
 		}
 	}
 
 	// top neighbor
 	if curY > 0 {
-		if n := defineNeighbour(curY-1, curX, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("top node: %d %d", curY-1, curX))
-			res = append(res, *n)
+		if neigbour := defineNode(curY-1, curX, &m.Grid, skipped); neigbour != nil {
+			res = append(res, neigbour)
 		}
 	}
 
 	// bottom neighbor
 	if curY < (m.Height - 1) {
-		if n := defineNeighbour(curY+1, curX, &m.Grid, skipped); n != nil {
-			a.debug(current, fmt.Sprintf("bottom node: %d %d", curY+1, curX))
-			res = append(res, *n)
+		if neigbour := defineNode(curY+1, curX, &m.Grid, skipped); neigbour != nil {
+			res = append(res, neigbour)
 		}
 	}
 
 	return res
 }
 
-func defineNeighbour(y int, x int, grid *[][]int, skipped map[string]*AStarNode) *AStarNode {
+func defineNode(y int, x int, grid *[][]int, skipped map[string]*AStarNode) *AStarNode {
 	mutex.RLock()
 	_, ok := skipped[generateKey(y, x)]
 	mutex.RUnlock()
@@ -378,6 +213,12 @@ func generateKey(y int, x int) string {
 	return fmt.Sprintf("%d-%d", y, x)
 }
 
+func (n *AStarNode) calculate(parent *AStarNode) {
+	n.HCost = parent.calculateHeuristic(n)
+	n.GCost = parent.GCost + 1
+	n.Parent = parent
+}
+
 func (n *AStarNode) calculateHeuristic(to *AStarNode) int {
 	return abs(n.Y-to.Y) + abs(n.X-to.X) // Manhattan distance or Euclidean distance
 }
@@ -388,4 +229,52 @@ func abs(i int) int {
 	}
 
 	return i
+}
+
+// DEBUGGING && LOGGING
+func (a *Astar) debug(n *AStarNode, msg string) {
+	if !a.debugMode {
+		return
+	}
+
+	if n != nil {
+		msg = fmt.Sprintf("node [y:%d,x:%d] | %s", n.Y, n.X, msg)
+	}
+
+	var k string
+	if n != nil {
+		k = generateKey(n.Y, n.X)
+	} else {
+		k = "default"
+	}
+
+	mutex.RLock()
+	_, ok := a.logs[k]
+	mutex.RUnlock()
+
+	mutex.Lock()
+	if !ok {
+		a.logs[k] = make([]string, 5)
+	}
+
+	a.logs[k] = append(a.logs[k], msg)
+	mutex.Unlock()
+}
+
+func (a *Astar) printDebugLogs() {
+	keys := make([]string, len(a.logs))
+
+	i := 0
+	for k := range a.logs {
+		keys[i] = k
+		i++
+	}
+
+	sort.SliceStable(keys, func(i, j int) bool { return keys[i] > keys[j] })
+
+	for _, k := range keys {
+		for _, v := range slices.Backward(a.logs[k]) {
+			fmt.Println(v)
+		}
+	}
 }

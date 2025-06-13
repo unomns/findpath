@@ -67,12 +67,12 @@ func main() {
 			path := pathFindingService.FindPath(gameMap, &p)
 
 			if path == nil {
-				fmt.Println("Target not detected!")
+				fmt.Printf("Player #%d Target not detected!\n", p.ID)
 
 				return
 			}
 
-			fmt.Printf("Player #%d Path found:\n", p.ID)
+			fmt.Printf("Player #%d Path found [start:%d,%d][end:%d,%d]:\n", p.ID, p.StartY, p.StartY, p.EndY, p.EndX)
 			for k, n := range path {
 				fmt.Printf("[%d][y:%d, x:%d]\n", k, n.Y, n.X)
 			}
