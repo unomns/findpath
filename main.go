@@ -37,12 +37,6 @@ func main() {
 		return
 	}
 
-	for y, arr := range gameMap.Grid {
-		for x := range arr {
-			gameMap.Map = append(gameMap.Map, model.Node{Y: y, X: x})
-		}
-	}
-
 	var algo algorithms.PathFinder
 
 	if algo, err = factory.NewPathFinder(*algorithm, *debugMode); err != nil {
@@ -72,7 +66,7 @@ func main() {
 				return
 			}
 
-			fmt.Printf("Player #%d Path found [start:%d,%d][end:%d,%d]:\n", p.ID, p.StartY, p.StartY, p.EndY, p.EndX)
+			fmt.Printf("Player #%d Path found [start:%v][end:%v]:\n", p.ID, p.Start, p.Target)
 			for k, n := range path {
 				fmt.Printf("[%d] %v\n", k, *n)
 			}

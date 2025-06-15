@@ -11,9 +11,9 @@ import (
 
 type AStarNode struct {
 	coords model.Node
-	gCost  int // Cost from the start node to this node
-	hCost  int // Heuristic cost from this node to the end node
-	fCost  int // Total cost (GCost + HCost)
+	gCost  int32 // Cost from the start node to this node
+	hCost  int32 // Heuristic cost from this node to the end node
+	fCost  int32 // Total cost (GCost + HCost)
 
 	parent *AStarNode
 	index  int
@@ -66,24 +66,24 @@ func (a *Astar) Name() string {
 var mutex sync.RWMutex
 
 func (a *Astar) Find(m model.GameMap, p *model.Player) []*model.Node {
-	if m.Grid[p.StartY][p.StartX] > 0 {
+	if m.Grid[p.Start.Y][p.Start.X] > 0 {
 		a.debug(nil, "Wrong position! Only the '0' value is available to moving threw!")
 
 		return nil
 	}
 
-	curY := p.StartY
-	curX := p.StartX
+	curY := p.Start.Y
+	curX := p.Start.X
 
 	a.debug(nil, fmt.Sprintf("Player #%d finding path.. map lenght: %d, map width: %d\n", p.ID, m.Height, m.Width))
 	a.debug(nil, fmt.Sprintf("Start coords: %d %d", curY, curX))
-	a.debug(nil, fmt.Sprintf("Target coords: %d %d\n", p.EndY, p.EndX))
+	a.debug(nil, fmt.Sprintf("Target coords: %d %d\n", p.Target.Y, p.Target.X))
 
 	skipped := make(map[string]*AStarNode)
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)
 
-	target := &AStarNode{coords: model.Node{Y: p.EndY, X: p.EndX}}
+	target := &AStarNode{coords: model.Node{Y: p.Target.Y, X: p.Target.X}}
 
 	current := &AStarNode{coords: model.Node{Y: curY, X: curX}}
 	current.hCost = current.calculateHeuristic(target)
@@ -187,7 +187,7 @@ func (n *AStarNode) neigbours(m *model.GameMap, skipped map[string]*AStarNode) [
 	return res
 }
 
-func defineNode(y int, x int, grid *[][]int, skipped map[string]*AStarNode) *AStarNode {
+func defineNode(y int32, x int32, grid *[][]int32, skipped map[string]*AStarNode) *AStarNode {
 	_, ok := skipped[generateKey(y, x)]
 	if ok || (*grid)[y][x] > 0 {
 		return nil
@@ -196,7 +196,7 @@ func defineNode(y int, x int, grid *[][]int, skipped map[string]*AStarNode) *ASt
 	return &AStarNode{coords: model.Node{Y: y, X: x}}
 }
 
-func generateKey(y int, x int) string {
+func generateKey(y int32, x int32) string {
 	return fmt.Sprintf("%d-%d", y, x)
 }
 
@@ -206,11 +206,11 @@ func (n *AStarNode) calculate(parent *AStarNode) {
 	n.parent = parent
 }
 
-func (n *AStarNode) calculateHeuristic(to *AStarNode) int {
+func (n *AStarNode) calculateHeuristic(to *AStarNode) int32 {
 	return abs(n.coords.Y-to.coords.Y) + abs(n.coords.X-to.coords.X) // Manhattan distance or Euclidean distance
 }
 
-func abs(i int) int {
+func abs(i int32) int32 {
 	if i < 0 {
 		return -i
 	}

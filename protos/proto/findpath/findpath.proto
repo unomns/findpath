@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package findpath;
+
+option go_package = "unomns.findpath.v1;findpathv1";
+
+service PathFinder {
+    rpc Path (PathRequest) returns (PathResponse);
+}
+
+message PathRequest {
+    int32 width = 1;
+    int32 height = 2;
+    repeated int32 grid = 3; // flat array
+    repeated Player players = 4;
+}
+
+message PathResponse {
+    repeated Path path = 1;
+}
+
+message Player {
+    Node start = 1;
+    Node target = 2;
+}
+
+message Path {
+    string player_id = 1;
+    repeated Node steps = 2;
+    bool found = 3;
+}
+
+message Node {
+    int32 y = 1;
+    int32 x = 2;
+}
+
+/* message UploadGridFileRequest {
+    string filename = 1;   // Optional: for logs or saving
+    bytes content = 2;     // File data (JSON, binary, whatever)
+  } */

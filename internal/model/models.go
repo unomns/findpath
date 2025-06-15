@@ -1,27 +1,20 @@
 package model
 
 type GameMap struct {
-	Width   int      `json:"width"`
-	Height  int      `json:"height"`
-	Grid    [][]int  `json:"grid"`
-	Players []Player `json:"players"`
-	Map     []Node   `json:"map"`
+	Width   int32     `json:"width"`
+	Height  int32     `json:"height"`
+	Grid    [][]int32 `json:"grid"`
+	Players []Player  `json:"players"`
+	Map     []Node    `json:"map"`
 }
 
 type Node struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	Y int32 `json:"y"`
+	X int32 `json:"x"`
 }
 
 type Player struct {
 	ID     int
-	StartX int
-	StartY int
-	EndX   int
-	EndY   int
-}
-
-type Path []struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	Start  Node
+	Target Node
 }
