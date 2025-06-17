@@ -1,15 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
-	"sync"
-	"unomns/findpath/internal/algorithms"
-	"unomns/findpath/internal/app"
-	"unomns/findpath/internal/factory"
-	"unomns/findpath/internal/model"
+	"unomns/findpath/pkg/findpath"
 )
 
 func main() {
@@ -24,56 +18,20 @@ func main() {
 		return
 	}
 
-	var gameMap model.GameMap
-	data, err := os.ReadFile(*file)
+	service, err := findpath.New(*algorithm, *debugMode)
 	if err != nil {
-		fmt.Printf("Read file error: %v\n", err)
+		fmt.Printf("Error! %v\n", err)
 		return
 	}
 
-	err = json.Unmarshal(data, &gameMap)
+	paths, err := service.GetPathFromFile(*file)
+
 	if err != nil {
-		fmt.Printf("Game Map has invalid format: %v\n", err)
+		fmt.Printf("Error! %v\n", err)
 		return
 	}
 
-	var algo algorithms.PathFinder
-
-	if algo, err = factory.NewPathFinder(*algorithm, *debugMode); err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
+	for i, path := range paths {
+		fmt.Printf("Result #%d: %v\n\n", i, path)
 	}
-
-	if *debugMode {
-		fmt.Printf("Algo choosen: '%s'\n", algo.Name())
-	}
-	pathFindingService := app.NewPathFindingService(algo)
-
-	var wg sync.WaitGroup
-
-	for i, p := range gameMap.Players {
-		p.ID = i + 1
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			path := pathFindingService.FindPath(gameMap, &p)
-
-			if path == nil {
-				fmt.Printf("Player #%d Target not detected!\n", p.ID)
-
-				return
-			}
-
-			fmt.Printf("Player #%d Path found [start:%v][end:%v]:\n", p.ID, p.Start, p.Target)
-			for k, n := range path {
-				fmt.Printf("[%d] %v\n", k, *n)
-			}
-			fmt.Println()
-		}()
-	}
-
-	wg.Wait()
-	fmt.Println("The end")
 }
