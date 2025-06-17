@@ -7,6 +7,15 @@ PROTO_OUT := ./protos/gen
 run-cli:
 	go run ./cmd/findpath-cli --FILE=$(FILE) --algo=$(ALGO)
 
+cli:
+	go build -o bin/findpath-cli ./cmd/findpath-cli
+
+grpc:
+	go build -o bin/findpath-grpc ./cmd/findpath-grpc
+
+clean:
+	rm ./bin/findpath-*
+
 proto:
 	@echo "Generating Protobuf..."
 	@protoc \
