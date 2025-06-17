@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	file := flag.String("file", "map.json", "Path to the map JSON")
+	file := flag.String("file", "map.example.json", "Path to the map JSON")
 	algorithm := flag.String("algo", "a", "Path finding algorithm (a*, etc)")
 	debugMode := flag.Bool("debug", false, "Use debug mode for extended logs")
 

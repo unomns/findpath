@@ -25,16 +25,16 @@ go get github.com/unomns/findpath
 ### Example usage:
 
 ```go
-package main
-
 import (
-    "github.com/unomns/findpath/internal/app"
-    "github.com/unomns/findpath/internal/model"
-    "github.com/unomns/findpath/internal/algorithms/astar"
+    "github.com/unomns/findpath/pkg/findpath"
 )
 
 func main() {
-    // TODO: show
+    service, _ := findpath.New(findpath.AlgoAStar, true)
+
+    paths, _ := service.GetPathFromFlatGrid(5, 5, []int32{...}, []*findpath.Player{...})
+
+    fmt.Println(paths)
 }
 ```
 
