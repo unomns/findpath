@@ -42,12 +42,6 @@ func main() {
 
 ### Run Locally
 ```bash
-go run cmd/server/main.go --map=map.json --algo=astar
-
-```
-
-### Run with Docker
-```bash
-docker build -t unomns/findpath .
-docker run -p 8080:8080 unomns/findpath
+make cli
+./bin/findpath-cli --debug
 ```
