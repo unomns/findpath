@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/unomns/findpath/internal/algorithms"
-	"github.com/unomns/findpath/internal/app"
-	"github.com/unomns/findpath/internal/factory"
-	"github.com/unomns/findpath/internal/model"
 	"log"
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/unomns/findpath/internal/algorithms"
+	"github.com/unomns/findpath/internal/app"
+	"github.com/unomns/findpath/internal/factory"
+	"github.com/unomns/findpath/internal/model"
 )
 
 type FindPathService struct {
@@ -94,6 +95,15 @@ func (fps *FindPathService) computePaths(gameMap *model.GameMap) ([]*Path, error
 
 	if fps.debug {
 		log.Printf("Algo choosen: '%s'\n", algo.Name())
+		log.Println("--------Map Grid---------")
+		for y := 0; y < int(gameMap.Height); y++ {
+			log.Printf("[%d]", y)
+			for x := 0; x < int(gameMap.Width); x++ {
+				log.Printf(" %d", x)
+			}
+			log.Println()
+		}
+		log.Println("-------------------------")
 	}
 	pathFindingService := app.NewPathFindingService(algo)
 
