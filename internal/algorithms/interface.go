@@ -1,6 +1,6 @@
 package algorithms
 
-import "unomns/findpath/internal/model"
+import "github.com/unomns/findpath/internal/model"
 
 type Position struct {
 	X, Y int

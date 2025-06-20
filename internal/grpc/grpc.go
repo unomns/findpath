@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"unomns/findpath/pkg/findpath"
-	findpathv1 "unomns/findpath/protos/gen/findpath"
+	"github.com/unomns/findpath/pkg/findpath"
+	findpathv1 "github.com/unomns/findpath/protos/gen/findpath"
 )
 
 type Server struct {

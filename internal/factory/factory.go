@@ -2,7 +2,7 @@ package factory
 
 import (
 	"fmt"
-	"unomns/findpath/internal/algorithms"
+	"github.com/unomns/findpath/internal/algorithms"
 )
 
 func NewPathFinder(algo string, debugMode bool) (algorithms.PathFinder, error) {

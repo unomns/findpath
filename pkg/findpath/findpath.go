@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/unomns/findpath/internal/algorithms"
+	"github.com/unomns/findpath/internal/app"
+	"github.com/unomns/findpath/internal/factory"
+	"github.com/unomns/findpath/internal/model"
+	"log"
 	"os"
 	"strconv"
 	"sync"
-	"unomns/findpath/internal/algorithms"
-	"unomns/findpath/internal/app"
-	"unomns/findpath/internal/factory"
-	"unomns/findpath/internal/model"
 )
 
 type FindPathService struct {
@@ -92,7 +93,7 @@ func (fps *FindPathService) computePaths(gameMap *model.GameMap) ([]*Path, error
 	}
 
 	if fps.debug {
-		fmt.Printf("Algo choosen: '%s'\n", algo.Name())
+		log.Printf("Algo choosen: '%s'\n", algo.Name())
 	}
 	pathFindingService := app.NewPathFindingService(algo)
 
@@ -110,14 +111,14 @@ func (fps *FindPathService) computePaths(gameMap *model.GameMap) ([]*Path, error
 
 			if path == nil {
 				if fps.debug {
-					fmt.Printf("Player #%d Target not detected!\n", p.ID)
+					log.Printf("Player #%d Target not detected!\n", p.ID)
 				}
 
 				return
 			}
 
 			if fps.debug {
-				fmt.Printf("Player #%d Path found [start:%v][end:%v]:\n", p.ID, p.Start, p.Target)
+				log.Printf("Player #%d Path found [start:%v][end:%v]:\n", p.ID, p.Start, p.Target)
 			}
 
 			paths[i].Found = true
@@ -125,11 +126,11 @@ func (fps *FindPathService) computePaths(gameMap *model.GameMap) ([]*Path, error
 
 			for k, n := range path {
 				if fps.debug {
-					fmt.Printf("[%d] %v\n", k, *n)
+					log.Printf("[%d] %v\n", k, *n)
 				}
 				paths[i].Steps[k] = &Node{Y: n.Y, X: n.X}
 			}
-			fmt.Println()
+			log.Println()
 		}()
 	}
 

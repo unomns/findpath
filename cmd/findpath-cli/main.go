@@ -3,7 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"unomns/findpath/pkg/findpath"
+
+	"github.com/unomns/findpath/pkg/findpath"
 )
 
 func main() {

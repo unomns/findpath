@@ -3,10 +3,10 @@ package algorithms
 import (
 	"container/heap"
 	"fmt"
+	"github.com/unomns/findpath/internal/model"
 	"slices"
 	"sort"
 	"sync"
-	"unomns/findpath/internal/model"
 )
 
 type AStarNode struct {

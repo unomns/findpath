@@ -8,9 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	app_grpc "unomns/findpath/internal/grpc"
-	findpathv1 "unomns/findpath/protos/gen/findpath"
 
+	app_grpc "github.com/unomns/findpath/internal/grpc"
+	findpathv1 "github.com/unomns/findpath/protos/gen/findpath"
 	"google.golang.org/grpc"
 )
 

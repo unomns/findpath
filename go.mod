@@ -1,4 +1,4 @@
-module unomns/findpath
+module github.com/unomns/findpath
 
 go 1.24.0
 

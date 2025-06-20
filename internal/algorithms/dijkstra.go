@@ -1,7 +1,7 @@
 package algorithms
 
 import (
-	"unomns/findpath/internal/model"
+	"github.com/unomns/findpath/internal/model"
 )
 
 type Dijkstra struct{}

@@ -1,8 +1,8 @@
 package app
 
 import (
-	"unomns/findpath/internal/algorithms"
-	"unomns/findpath/internal/model"
+	"github.com/unomns/findpath/internal/algorithms"
+	"github.com/unomns/findpath/internal/model"
 )
 
 type pathFindingService struct {

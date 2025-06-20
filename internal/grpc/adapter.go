@@ -1,8 +1,8 @@
 package app_grpc
 
 import (
-	"unomns/findpath/pkg/findpath"
-	findpathv1 "unomns/findpath/protos/gen/findpath"
+	"github.com/unomns/findpath/pkg/findpath"
+	findpathv1 "github.com/unomns/findpath/protos/gen/findpath"
 )
 
 func ToGRPCPaths(paths []*findpath.Path) []*findpathv1.Path {
