@@ -97,11 +97,11 @@ func (fps *FindPathService) computePaths(gameMap *model.GameMap) ([]*Path, error
 		log.Printf("Algo choosen: '%s'\n", algo.Name())
 		log.Println("--------Map Grid---------")
 		for y := 0; y < int(gameMap.Height); y++ {
-			log.Printf("[%d]", y)
+			fmt.Printf("[%d]", y)
 			for x := 0; x < int(gameMap.Width); x++ {
-				log.Printf(" %d", x)
+				fmt.Printf(" %d", gameMap.Grid[y][x])
 			}
-			log.Println()
+			fmt.Println()
 		}
 		log.Println("-------------------------")
 	}
